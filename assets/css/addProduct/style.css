@@ -1,0 +1,14 @@
+.file-wrapper {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .file-name {
+    margin-right: 10px;
+  }
+
+  .cancel-button {
+    cursor: pointer;
+    color: red;
+  }

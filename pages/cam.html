@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Capture</title>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <style>
+        #video {
+            width: 100%;
+            max-width: 500px;
+        }
+        .preview-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .preview-img {
+            width: 100px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        .retake-option {
+            color: red;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <button class="btn btn-secondary me-3" type="button" onclick="accessCamera()">Capture Photo <i class="fas fa-camera fs-5"></i></button>
+    <div id="previews"></div>
+    <button class="btn btn-primary mt-3" onclick="saveImages()" disabled>Save Images</button>
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <script>
+        let capturedImages = [];
+        let captureButtonEnabled = true;
+        let captureButtonAttached = false;
+
+        async function accessCamera() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            if (captureButtonEnabled) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                } catch (err) {
+                    console.error('Error accessing camera:', err);
+                }
+
+                if (!captureButtonAttached) {
+                    const captureButton = document.querySelector('.btn');
+                    captureButton.disabled = false;
+
+                    captureButton.addEventListener('click', function capturePhoto() {
+                        if (capturedImages.length < 6) {
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const dataUrl = canvas.toDataURL('image/png');
+                            if (!capturedImages.some(img => img === dataUrl)) {
+                                capturedImages.push(dataUrl);
+                                updatePreviews();
+                            }
+                        }
+                        if (capturedImages.length === 6) {
+                            captureButton.disabled = true;
+                        }
+                    });
+                    captureButtonAttached = true;
+                }
+            }
+        }
+
+        function updatePreviews() {
+            const previewsContainer = document.getElementById('previews');
+            previewsContainer.innerHTML = '';
+            capturedImages.forEach((imageDataUrl, index) => {
+                const previewContainer = document.createElement('div');
+                previewContainer.classList.add('preview-container');
+
+                const imageElement = document.createElement('img');
+                imageElement.src = imageDataUrl;
+                imageElement.classList.add('preview-img');
+                imageElement.onclick = function() {
+                    retakeImage(index);
+                };
+
+                const retakeOption = document.createElement('span');
+                retakeOption.classList.add('retake-option');
+                retakeOption.textContent = 'Retake';
+                retakeOption.onclick = function() {
+                    retakeImage(index);
+                };
+
+                previewContainer.appendChild(imageElement);
+                previewContainer.appendChild(retakeOption);
+                previewsContainer.appendChild(previewContainer);
+            });
+            if (capturedImages.length > 0) {
+                document.querySelector('.btn-primary').disabled = false;
+            } else {
+                document.querySelector('.btn-primary').disabled = true;
+            }
+        }
+
+        async function retakeImage(index) {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/png');
+
+            capturedImages[index] = dataUrl;
+            updatePreviews();
+        }
+
+        function saveImages() {
+            capturedImages.forEach((imageDataUrl, index) => {
+                saveImage(imageDataUrl);
+            });
+            capturedImages = [];
+            updatePreviews();
+            document.querySelector('.btn').disabled = false;
+            captureButtonEnabled = true;
+        }
+
+        function saveImage(dataUrl) {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', 'save_image.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    console.log('Image saved successfully!');
+                }
+            };
+            xhr.send('imageData=' + encodeURIComponent(dataUrl));
+        }
+    </script>
+</body>
+</html>
